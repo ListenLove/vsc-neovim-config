@@ -3,7 +3,7 @@
 > 由于在自己的 Vim 中配置将其配置成为 "Vs Code"的效果，从插件生态上难以达到直接使用 VS Code 的效果。所以，这次笔者从 VS Code 触发，将其配置成一个 VIM Code。
 
 ## 安装环境
-1.安装[Neovim](https://neovim.io/)  
+1. 安装 [Neovim](https://neovim.io/)  
 2. 安装 [Visual Studio Code](https://code.visualstudio.com/)  
 3. 安装 [VSCode Neovim](https://marketplace.visualstudio.com/items?itemName=asvetliakov.vscode-neovim) 插件：
    - 打开 VS Code，进入扩展市场（快捷键 `Ctrl+Shift+X`）
@@ -34,7 +34,7 @@ git clone https://github.com/ListenLove/vsc-neovim-config  $env:LOCALAPPDATA\nvi
 移除 .git 文件夹，这样您稍后可以将其添加到您自己的仓库中
 
 ```powershell
-Remove-Item $env:LOCALAPPDATA\nvim.git -Recurse -Force
+Remove-Item $env:LOCALAPPDATA\nvim\.git -Recurse -Force
 ```
 
 ### Linux/MacOS

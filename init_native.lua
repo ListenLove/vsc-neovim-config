@@ -339,10 +339,11 @@ require("lazy").setup({
     event = "VeryLazy",
     opts = {},
     keys = {
-      { "s", mode = { "n", "x", "o" }, function() require("flash").jump() end, desc = "Flash" },
-      { "S", mode = { "n", "x", "o" }, function() require("flash").treesitter() end, desc = "Flash Treesitter" },
-      { "r", mode = "o", function() require("flash").remote() end, desc = "Remote Flash" },
-      { "R", mode = { "o", "x" }, function() require("flash").treesitter_search() end, desc = "Treesitter Search" },
+      -- 调整快捷键以避免冲突 (s/S 原生功能保留)
+      { "gs", mode = { "n", "x", "o" }, function() require("flash").jump() end, desc = "Flash" },
+      { "gS", mode = { "n", "x", "o" }, function() require("flash").treesitter() end, desc = "Flash Treesitter" },
+      { "gr", mode = "o", function() require("flash").remote() end, desc = "Remote Flash" },
+      { "gR", mode = { "o", "x" }, function() require("flash").treesitter_search() end, desc = "Treesitter Search" },
       { "<c-s>", mode = { "c" }, function() require("flash").toggle() end, desc = "Toggle Flash Search" },
     },
   },
@@ -395,7 +396,8 @@ require("lazy").setup({
     },
     config = function()
       -- ufo 推荐的配置
-      vim.o.foldcolumn = '1'
+      -- 隐藏折叠列（数字/图标），只保留代码中的缩进线 (indent-blankline)
+      vim.o.foldcolumn = '0'
       vim.o.foldlevel = 99
       vim.o.foldlevelstart = 99
       vim.o.foldenable = true
@@ -415,9 +417,10 @@ require("lazy").setup({
 vim.api.nvim_create_autocmd("BufWritePre", {
   pattern = "*.go",
   callback = function()
+    -- 1. Organize Imports (设置 1000ms 超时防止卡死)
     local params = vim.lsp.util.make_range_params()
     params.context = {only = {"source.organizeImports"}}
-    local result = vim.lsp.buf_request_sync(0, "textDocument/codeAction", params)
+    local result = vim.lsp.buf_request_sync(0, "textDocument/codeAction", params, 1000)
     for cid, res in pairs(result or {}) do
       for _, r in pairs(res.result or {}) do
         if r.edit then
@@ -426,7 +429,17 @@ vim.api.nvim_create_autocmd("BufWritePre", {
         end
       end
     end
-    vim.lsp.buf.format({async = false})
+    
+    -- 2. Format (设置 1000ms 超时防止卡死)
+    vim.lsp.buf.format({async = false, timeout_ms = 1000})
+    
+    -- 3. 强制将 Tab 转回空格 (仅当开启 expandtab 时)
+    -- gofmt 强制输出 Tab，这是 Go 语言设计决定的，无法配置 gofmt 输出空格。
+    -- 因此必须在格式化后执行 retab。
+    -- 此操作在 BufWritePre (保存前) 执行，不会触发递归保存，非常安全。
+    if vim.bo.expandtab then
+      vim.cmd('retab')
+    end
   end
 })
 -- ==========================================

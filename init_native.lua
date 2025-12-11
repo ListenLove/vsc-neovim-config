@@ -35,12 +35,36 @@ vim.opt.rtp:prepend(lazypath)
 -- 3. 插件列表与配置
 -- ==========================================
 require("lazy").setup({
-  -- [主题]
+  -- [主题] Monokai Pro (Sublime Text 风格)
+  {
+    "loctvl842/monokai-pro.nvim",
+    lazy = false,
+    priority = 1000,
+    config = function()
+      require("monokai-pro").setup({
+        filter = "pro", -- classic | octagon | pro | machine | ristretto | spectrum
+      })
+      vim.cmd([[colorscheme monokai-pro]])
+    end,
+  },
+
+  -- [主题备选] TokyoNight
   {
     "folke/tokyonight.nvim",
     lazy = false,
-    priority = 1000,
-    config = function() vim.cmd([[colorscheme tokyonight-storm]]) end,
+    priority = 800,
+  },
+
+  -- [Surround] 包裹文本处理 (类似 surround.vim)
+  {
+    "kylechui/nvim-surround",
+    version = "*", -- Use for stability; omit to use `main` branch for the latest features
+    event = "VeryLazy",
+    config = function()
+      require("nvim-surround").setup({
+        -- Configuration here, or leave empty to use defaults
+      })
+    end
   },
 
   -- [文件树]
@@ -120,6 +144,18 @@ require("lazy").setup({
     end
   },
 
+  -- [Lua 开发增强] (智能感知 vim 全局变量等)
+  {
+    "folke/lazydev.nvim",
+    ft = "lua", -- 仅在 lua 文件加载
+    opts = {
+      library = {
+        { path = "luvit-meta/library", words = { "vim%.uv" } },
+      },
+    },
+  },
+  { "Bilal2453/luvit-meta", lazy = true }, -- 可选：vim.uv 类型定义
+
   -- [LSP 核心配置] (修复报错的关键部分)
   {
     "neovim/nvim-lspconfig",
@@ -137,11 +173,24 @@ require("lazy").setup({
 
       -- 3. 使用 mason-lspconfig 自动设置 handlers
       require("mason-lspconfig").setup({
-        ensure_installed = { "gopls" },
+        ensure_installed = { "gopls", "lua_ls" },
         handlers = {
           function(server_name)
             require("lspconfig")[server_name].setup({
               capabilities = capabilities,
+            })
+          end,
+
+          ["lua_ls"] = function()
+            require("lspconfig").lua_ls.setup({
+              capabilities = capabilities,
+              settings = {
+                Lua = {
+                  completion = {
+                    callSnippet = "Replace",
+                  },
+                },
+              },
             })
           end,
 
@@ -219,6 +268,9 @@ require("lazy").setup({
       { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find Files" },
       { "<leader>fg", "<cmd>Telescope live_grep<cr>", desc = "Grep Files" },
       { "<leader>fb", "<cmd>Telescope buffers<cr>", desc = "Buffers" },
+      -- 符号跳转 (类似 VS Code Ctrl+;)
+      { "<C-;>", "<cmd>Telescope lsp_document_symbols<cr>", desc = "Document Symbols" },
+      { "<leader>s", "<cmd>Telescope lsp_document_symbols<cr>", desc = "Document Symbols" },
     },
   },
   -- [参数提示] 输入函数参数时显示签名提示
@@ -279,6 +331,81 @@ require("lazy").setup({
 
       vim.cmd('autocmd! TermOpen term://* lua set_terminal_keymaps()')
     end
+  },
+
+  -- [Flash] 快速跳转 (2025 必备)
+  {
+    "folke/flash.nvim",
+    event = "VeryLazy",
+    opts = {},
+    keys = {
+      { "s", mode = { "n", "x", "o" }, function() require("flash").jump() end, desc = "Flash" },
+      { "S", mode = { "n", "x", "o" }, function() require("flash").treesitter() end, desc = "Flash Treesitter" },
+      { "r", mode = "o", function() require("flash").remote() end, desc = "Remote Flash" },
+      { "R", mode = { "o", "x" }, function() require("flash").treesitter_search() end, desc = "Treesitter Search" },
+      { "<c-s>", mode = { "c" }, function() require("flash").toggle() end, desc = "Toggle Flash Search" },
+    },
+  },
+
+  -- [Git Signs] Git 信息提示
+  {
+    "lewis6991/gitsigns.nvim",
+    config = function()
+      require('gitsigns').setup({
+        current_line_blame = true, -- 开启行内 blame
+      })
+    end
+  },
+
+  -- [Which Key] 快捷键提示
+  {
+    "folke/which-key.nvim",
+    event = "VeryLazy",
+    init = function()
+      vim.o.timeout = true
+      vim.o.timeoutlen = 300
+    end,
+    opts = {}
+  },
+
+  -- [Todo Comments] 高亮 TODO/FIXME
+  {
+    "folke/todo-comments.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+    opts = {}
+  },
+
+  -- [Indent Blankline] 缩进参考线
+  {
+    "lukas-reineke/indent-blankline.nvim",
+    main = "ibl",
+    opts = {},
+  },
+
+  -- [代码折叠] nvim-ufo (现代化折叠体验)
+  {
+    "kevinhwang91/nvim-ufo",
+    dependencies = { "kevinhwang91/promise-async" },
+    event = "BufRead",
+    keys = {
+      { "zR", function() require("ufo").openAllFolds() end, desc = "Open All Folds" },
+      { "zM", function() require("ufo").closeAllFolds() end, desc = "Close All Folds" },
+      { "zr", function() require("ufo").openFoldsExceptKinds() end, desc = "Open Folds Except Kinds" },
+      { "zm", function() require("ufo").closeFoldsWith() end, desc = "Close Folds With" },
+    },
+    config = function()
+      -- ufo 推荐的配置
+      vim.o.foldcolumn = '1'
+      vim.o.foldlevel = 99
+      vim.o.foldlevelstart = 99
+      vim.o.foldenable = true
+
+      require('ufo').setup({
+        provider_selector = function(bufnr, filetype, buftype)
+          return {'treesitter', 'indent'}
+        end
+      })
+    end,
   },
 })
 

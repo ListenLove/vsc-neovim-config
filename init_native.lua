@@ -35,6 +35,9 @@ vim.opt.rtp:prepend(lazypath)
 -- 3. 插件列表与配置
 -- ==========================================
 require("lazy").setup({
+  -- 导入公共插件配置
+  { import = "plugins.common" },
+
   -- [主题] Monokai Pro (Sublime Text 风格)
   {
     "loctvl842/monokai-pro.nvim",
@@ -55,17 +58,7 @@ require("lazy").setup({
     priority = 800,
   },
 
-  -- [Surround] 包裹文本处理 (类似 surround.vim)
-  {
-    "kylechui/nvim-surround",
-    version = "*", -- Use for stability; omit to use `main` branch for the latest features
-    event = "VeryLazy",
-    config = function()
-      require("nvim-surround").setup({
-        -- Configuration here, or leave empty to use defaults
-      })
-    end
-  },
+
 
   -- [文件树]
   {
@@ -132,17 +125,7 @@ require("lazy").setup({
     event = "InsertEnter",
     config = true -- 使用默认配置
   },
-  -- [快速注释]
-  {
-    'numToStr/Comment.nvim',
-    config = function()
-      require('Comment').setup()
-      -- 兼容 VS Code 习惯: Ctrl + / (在终端里通常识别为 Ctrl + _)
-      vim.keymap.set('n', '<C-_>', function() require('Comment.api').toggle.linewise.current() end, { desc = "Toggle Comment" })
-      vim.keymap.set('v', '<C-_>', "<ESC><cmd>lua require('Comment.api').toggle.linewise(vim.fn.visualmode())<CR>", { desc = "Toggle Comment" })
 
-    end
-  },
 
   -- [Lua 开发增强] (智能感知 vim 全局变量等)
   {
@@ -333,20 +316,7 @@ require("lazy").setup({
     end
   },
 
-  -- [Flash] 快速跳转 (2025 必备)
-  {
-    "folke/flash.nvim",
-    event = "VeryLazy",
-    opts = {},
-    keys = {
-      -- 调整快捷键以避免冲突 (s/S 原生功能保留)
-      { "gs", mode = { "n", "x", "o" }, function() require("flash").jump() end, desc = "Flash" },
-      { "gS", mode = { "n", "x", "o" }, function() require("flash").treesitter() end, desc = "Flash Treesitter" },
-      { "gr", mode = "o", function() require("flash").remote() end, desc = "Remote Flash" },
-      { "gR", mode = { "o", "x" }, function() require("flash").treesitter_search() end, desc = "Treesitter Search" },
-      { "<c-s>", mode = { "c" }, function() require("flash").toggle() end, desc = "Toggle Flash Search" },
-    },
-  },
+
 
   -- [Git Signs] Git 信息提示
   {

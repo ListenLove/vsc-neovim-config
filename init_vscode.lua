@@ -1,6 +1,25 @@
 -- 原始的 init.lua 内容（用于在 VSCode 的 vscode-neovim 插件中加载）
 -- 下面内容为原始配置的备份
 
+-- ==========================================
+-- 插件管理器安装 (Bootstrap Lazy.nvim)
+-- ==========================================
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git", "clone", "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git", "--branch=stable", lazypath,
+  })
+end
+vim.opt.rtp:prepend(lazypath)
+
+-- ==========================================
+-- 加载公共插件
+-- ==========================================
+require("lazy").setup({
+  { import = "plugins.common" },
+})
+
 -- 设置 leader 键为空格
 vim.keymap.set("", "<Space>", "<Nop>")
 vim.g.mapleader = " "

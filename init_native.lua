@@ -111,13 +111,42 @@ require("lazy").setup({
   {
     "nvim-treesitter/nvim-treesitter",
     build = ":TSUpdate",
+    dependencies = {
+      "nvim-treesitter/nvim-treesitter-textobjects",
+    },
     config = function()
       require("nvim-treesitter.configs").setup({
-        ensure_installed = { "go", "gomod", "lua", "json" },
+        ensure_installed = { 
+          "go", "gomod", "lua", "json",
+          "typescript", "tsx", "javascript", "jsdoc",
+          "html", "css", "scss",
+          "markdown", "markdown_inline",
+          "vim", "regex", "bash",
+        },
         highlight = { enable = true },
-        indent = { enable = false },
+        indent = { enable = true },
+        autotag = { enable = true }, -- 自动关闭标签
+        textobjects = {
+          select = {
+            enable = true,
+            lookahead = true,
+            keymaps = {
+              ["af"] = "@function.outer",
+              ["if"] = "@function.inner",
+              ["ac"] = "@class.outer",
+              ["ic"] = "@class.inner",
+            },
+          },
+        },
       })
     end,
+  },
+  
+  -- [自动标签] 自动关闭 HTML/JSX 标签
+  {
+    "windwp/nvim-ts-autotag",
+    event = "InsertEnter",
+    config = true,
   },
   -- [自动成对] 自动闭合括号、引号
   {
@@ -156,7 +185,15 @@ require("lazy").setup({
 
       -- 3. 使用 mason-lspconfig 自动设置 handlers
       require("mason-lspconfig").setup({
-        ensure_installed = { "gopls", "lua_ls" },
+        ensure_installed = { 
+          "gopls", 
+          "lua_ls", 
+          "ts_ls",        -- TypeScript/JavaScript
+          "html",         -- HTML
+          "cssls",        -- CSS
+          "tailwindcss",  -- Tailwind CSS
+          "emmet_ls",     -- Emmet
+        },
         handlers = {
           function(server_name)
             require("lspconfig")[server_name].setup({
@@ -177,6 +214,21 @@ require("lazy").setup({
             })
           end,
 
+          ["ts_ls"] = function()
+            require("lspconfig").ts_ls.setup({
+              capabilities = capabilities,
+              settings = {
+                typescript = {
+                  inlayHints = {
+                    includeInlayParameterNameHints = 'all',
+                    includeInlayFunctionParameterTypeHints = true,
+                  },
+                },
+              },
+              filetypes = { "typescript", "typescriptreact", "javascript", "javascriptreact" },
+            })
+          end,
+
           ["gopls"] = function()
             require("lspconfig").gopls.setup({
               capabilities = capabilities,
@@ -187,6 +239,20 @@ require("lazy").setup({
                   gofumpt = true,
                 },
               },
+            })
+          end,
+
+          ["emmet_ls"] = function()
+            require("lspconfig").emmet_ls.setup({
+              capabilities = capabilities,
+              filetypes = { "html", "css", "scss", "javascriptreact", "typescriptreact", "vue" },
+            })
+          end,
+
+          ["tailwindcss"] = function()
+            require("lspconfig").tailwindcss.setup({
+              capabilities = capabilities,
+              filetypes = { "html", "css", "scss", "javascriptreact", "typescriptreact", "vue" },
             })
           end,
         }
@@ -214,15 +280,23 @@ require("lazy").setup({
     "hrsh7th/nvim-cmp",
     dependencies = {
       "hrsh7th/cmp-nvim-lsp",
+      "hrsh7th/cmp-buffer",
+      "hrsh7th/cmp-path",
       "L3MON4D3/LuaSnip",
       "saadparwaiz1/cmp_luasnip",
+      "rafamadriz/friendly-snippets", -- 大量预定义 snippet
     },
     config = function()
       local cmp = require("cmp")
+      local luasnip = require("luasnip")
+      
+      -- 加载 friendly-snippets
+      require("luasnip.loaders.from_vscode").lazy_load()
+      
       cmp.setup({
         snippet = {
           expand = function(args)
-            require("luasnip").lsp_expand(args.body)
+            luasnip.lsp_expand(args.body)
           end,
         },
         mapping = cmp.mapping.preset.insert({
@@ -230,14 +304,43 @@ require("lazy").setup({
           ['<C-f>'] = cmp.mapping.scroll_docs(4),
           ['<C-Space>'] = cmp.mapping.complete(),
           ['<CR>'] = cmp.mapping.confirm({ select = true }),
-          ['<Tab>'] = cmp.mapping.select_next_item(),
+          ['<Tab>'] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.select_next_item()
+            elseif luasnip.expand_or_jumpable() then
+              luasnip.expand_or_jump()
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
+          ['<S-Tab>'] = cmp.mapping(function(fallback)
+            if cmp.visible() then
+              cmp.select_prev_item()
+            elseif luasnip.jumpable(-1) then
+              luasnip.jump(-1)
+            else
+              fallback()
+            end
+          end, { 'i', 's' }),
         }),
         sources = cmp.config.sources({
-          { name = 'nvim_lsp' },
-          { name = 'luasnip' },
+          { name = 'nvim_lsp', priority = 1000 },
+          { name = 'luasnip', priority = 750 },
+          { name = 'path', priority = 500 },
         }, {
-          { name = 'buffer' },
-        })
+          { name = 'buffer', priority = 250 },
+        }),
+        formatting = {
+          format = function(entry, vim_item)
+            vim_item.menu = ({
+              nvim_lsp = "[LSP]",
+              luasnip = "[Snip]",
+              buffer = "[Buf]",
+              path = "[Path]",
+            })[entry.source.name]
+            return vim_item
+          end,
+        },
       })
     end,
   },
@@ -379,6 +482,174 @@ require("lazy").setup({
       })
     end,
   },
+
+  -- [格式化工具] conform.nvim (支持 Prettier, ESLint 等)
+  {
+    "stevearc/conform.nvim",
+    event = { "BufWritePre" },
+    cmd = { "ConformInfo" },
+    keys = {
+      {
+        "<leader>fm",
+        function()
+          require("conform").format({ async = true, lsp_fallback = true })
+        end,
+        mode = "",
+        desc = "Format buffer",
+      },
+    },
+    opts = {
+      formatters_by_ft = {
+        javascript = { "prettier" },
+        typescript = { "prettier" },
+        javascriptreact = { "prettier" },
+        typescriptreact = { "prettier" },
+        css = { "prettier" },
+        html = { "prettier" },
+        json = { "prettier" },
+        yaml = { "prettier" },
+        markdown = { "prettier" },
+        lua = { "stylua" },
+      },
+      format_on_save = {
+        timeout_ms = 500,
+        lsp_fallback = true,
+      },
+    },
+  },
+
+  -- [调试器核心] DAP (Debug Adapter Protocol)
+  {
+    "mfussenegger/nvim-dap",
+    dependencies = {
+      "rcarriga/nvim-dap-ui",
+      "theHamsta/nvim-dap-virtual-text",
+      "nvim-neotest/nvim-nio",
+    },
+    keys = {
+      { "<F5>", function() require('dap').continue() end, desc = "Debug: Start/Continue" },
+      { "<F10>", function() require('dap').step_over() end, desc = "Debug: Step Over" },
+      { "<F11>", function() require('dap').step_into() end, desc = "Debug: Step Into" },
+      { "<F12>", function() require('dap').step_out() end, desc = "Debug: Step Out" },
+      { "<leader>db", function() require('dap').toggle_breakpoint() end, desc = "Debug: Toggle Breakpoint" },
+      { "<leader>dB", function() require('dap').set_breakpoint(vim.fn.input('Breakpoint condition: ')) end, desc = "Debug: Conditional Breakpoint" },
+      { "<leader>dr", function() require('dap').repl.open() end, desc = "Debug: Open REPL" },
+      { "<leader>dl", function() require('dap').run_last() end, desc = "Debug: Run Last" },
+      { "<leader>du", function() require('dapui').toggle() end, desc = "Debug: Toggle UI" },
+    },
+    config = function()
+      local dap = require('dap')
+      local dapui = require('dapui')
+      
+      -- DAP UI 配置
+      dapui.setup()
+      
+      -- 虚拟文本配置
+      require('nvim-dap-virtual-text').setup()
+      
+      -- 自动打开/关闭 DAP UI
+      dap.listeners.after.event_initialized["dapui_config"] = function()
+        dapui.open()
+      end
+      dap.listeners.before.event_terminated["dapui_config"] = function()
+        dapui.close()
+      end
+      dap.listeners.before.event_exited["dapui_config"] = function()
+        dapui.close()
+      end
+      
+      -- Go 调试器配置
+      dap.adapters.delve = {
+        type = 'server',
+        port = '${port}',
+        executable = {
+          command = 'dlv',
+          args = {'dap', '-l', '127.0.0.1:${port}'},
+        }
+      }
+      
+      dap.configurations.go = {
+        {
+          type = 'delve',
+          name = 'Debug',
+          request = 'launch',
+          program = "${file}"
+        },
+        {
+          type = 'delve',
+          name = 'Debug test',
+          request = 'launch',
+          mode = 'test',
+          program = "${file}"
+        },
+      }
+    end,
+  },
+
+  -- [JavaScript/TypeScript 调试器]
+  {
+    "mxsdev/nvim-dap-vscode-js",
+    dependencies = { "mfussenegger/nvim-dap" },
+    config = function()
+      require("dap-vscode-js").setup({
+        debugger_path = vim.fn.stdpath("data") .. "/mason/packages/js-debug-adapter",
+        debugger_cmd = { "js-debug-adapter" },
+        adapters = { 'pwa-node', 'pwa-chrome', 'pwa-msedge', 'node-terminal', 'pwa-extensionHost' },
+      })
+      
+      for _, language in ipairs({ "typescript", "javascript", "typescriptreact", "javascriptreact" }) do
+        require("dap").configurations[language] = {
+          {
+            type = "pwa-node",
+            request = "launch",
+            name = "Launch file",
+            program = "${file}",
+            cwd = "${workspaceFolder}",
+          },
+          {
+            type = "pwa-node",
+            request = "attach",
+            name = "Attach",
+            processId = require'dap.utils'.pick_process,
+            cwd = "${workspaceFolder}",
+          }
+        }
+      end
+    end,
+  },
+
+  -- [颜色高亮] 显示 CSS 颜色
+  {
+    "NvChad/nvim-colorizer.lua",
+    event = "BufReadPre",
+    opts = {
+      filetypes = { "*" },
+      user_default_options = {
+        RGB = true,
+        RRGGBB = true,
+        names = false,
+        RRGGBBAA = true,
+        css = true,
+        css_fn = true,
+        mode = "background",
+      },
+    },
+  },
+
+  -- [括号高亮] 匹配括号高亮
+  {
+    "andymass/vim-matchup",
+    event = "BufReadPost",
+    config = function()
+      vim.g.matchup_matchparen_offscreen = { method = "popup" }
+    end,
+  },
+
+  -- [图标美化] 更好的图标支持
+  {
+    "nvim-tree/nvim-web-devicons",
+    config = true,
+  },
 })
 
 -- ==========================================
@@ -450,3 +721,57 @@ vim.api.nvim_create_autocmd("BufReadPost", {
     end
   end,
 })
+
+-- ==========================================
+-- 6. Neovide GUI 专属配置
+-- ==========================================
+if vim.g.neovide then
+
+  -- 字体建议：Neovide 更推荐通过 guifont 设置
+  -- 如需中文 fallback，建议在 ~/.config/neovide/config.toml 的 [font] normal 里加第二字体
+  -- vim.o.guifont = "JetBrainsMono Nerd Font:h14"
+
+  -- 透明度（0~1）
+  vim.g.neovide_opacity = 0.95
+  vim.g.neovide_normal_opacity = 0.95
+  vim.g.neovide_hide_mouse_when_typing = true
+
+  -- 浮窗模糊
+  vim.g.neovide_floating_blur_amount_x = 2.0
+  vim.g.neovide_floating_blur_amount_y = 2.0
+
+  -- 动画
+  vim.g.neovide_scroll_animation_length = 0.3
+  vim.g.neovide_cursor_animation_length = 0.13
+  vim.g.neovide_cursor_trail_size = 0.8
+  vim.g.neovide_cursor_antialiasing = true
+  vim.g.neovide_cursor_animate_in_insert_mode = true
+  vim.g.neovide_cursor_animate_command_line = true
+  vim.g.neovide_cursor_vfx_mode = "railgun" -- railgun, torpedo, pixiedust, sonicboom, ripple, wireframe
+
+  -- 刷新率
+  vim.g.neovide_refresh_rate = 60
+  vim.g.neovide_refresh_rate_idle = 5
+
+  -- 窗口行为
+  vim.g.neovide_remember_window_size = true
+
+  -- 缩放（先给个安全默认值）
+  vim.g.neovide_scale_factor = vim.g.neovide_scale_factor or 1.0
+
+  -- 全屏快捷键 (F11)
+  vim.keymap.set('n', '<F11>', function()
+    vim.g.neovide_fullscreen = not vim.g.neovide_fullscreen
+  end, { desc = "Toggle Fullscreen" })
+
+  -- 缩放快捷键
+  vim.keymap.set('n', '<C-=>', function()
+    vim.g.neovide_scale_factor = math.min(3.0, (vim.g.neovide_scale_factor or 1.0) + 0.1)
+  end, { desc = "Zoom In" })
+  vim.keymap.set('n', '<C-->', function()
+    vim.g.neovide_scale_factor = math.max(0.5, (vim.g.neovide_scale_factor or 1.0) - 0.1)
+  end, { desc = "Zoom Out" })
+  vim.keymap.set('n', '<C-0>', function()
+    vim.g.neovide_scale_factor = 1.0
+  end, { desc = "Reset Zoom" })
+end

@@ -18,16 +18,3 @@ else
     vim.notify('Failed to load ' .. path .. ': ' .. tostring(err), vim.log.levels.ERROR)
   end
 end
-
--- 提示当前所加载的配置（仅供调试，可删除）
-vim.schedule(function()
-  if is_vscode then
-    vim.notify('Loaded init_vscode.lua (vscode-neovim)', vim.log.levels.INFO)
-  else
-    vim.notify('Loaded init_native.lua (native Neovim)', vim.log.levels.INFO)
-  end
-end)
-
--- 加载核心配置
-require("core.options")
-require("core.keymaps")

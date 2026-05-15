@@ -15,6 +15,10 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+-- 必须在 lazy.setup 之前设置 leader 键
+vim.g.mapleader = " "
+vim.g.maplocalleader = " "
+
 require("lazy").setup({
   spec = {
     -- LazyVim 核心插件（必须第一个）

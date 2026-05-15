@@ -13,16 +13,17 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+-- 必须在 lazy.setup 之前设置 leader 键
+vim.g.mapleader = " "
+vim.g.maplocalleader = " "
+vim.keymap.set("", "<Space>", "<Nop>")
+
 -- ==========================================
 -- 加载公共插件
 -- ==========================================
 require("lazy").setup({
   { import = "plugins.common" },
 })
-
--- 设置 leader 键为空格
-vim.keymap.set("", "<Space>", "<Nop>")
-vim.g.mapleader = " "
 
 -- utf8
 vim.g.encoding = "UTF-8"
